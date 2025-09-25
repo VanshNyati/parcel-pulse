@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --brand-bg: #f5f1ff; } /* keep the light purple */
+body { background: var(--brand-bg); }
