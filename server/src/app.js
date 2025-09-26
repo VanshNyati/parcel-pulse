@@ -5,7 +5,12 @@ const morgan = require("morgan");
 const connectDB = require("./utils/db");
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN?.split(","),
+    credentials: false, // we use bearer token; no cookies needed
+  })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
