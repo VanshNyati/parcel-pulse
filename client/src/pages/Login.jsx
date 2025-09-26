@@ -1,12 +1,12 @@
 import { useState } from "react";
 import api from "../api/axios";
+import { toast } from "react-hot-toast";
 
 const DEMO =
   import.meta.env.MODE !== "production" &&
   import.meta.env.VITE_DEMO_LOGIN === "1";
 
 export default function Login() {
-  // empty by default
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -14,6 +14,10 @@ export default function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+    if (!email || !password) {
+      setErr("Email and password are required");
+      return;
+    }
     try {
       const { data } = await api.post("/auth/login", { email, password });
       localStorage.setItem("token", data.token);
@@ -21,6 +25,7 @@ export default function Login() {
       window.location.href = "/";
     } catch {
       setErr("Invalid credentials");
+      toast.error("Login failed");
     }
   };
 

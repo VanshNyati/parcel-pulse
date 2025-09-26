@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import Button from "../components/Button";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { toast } from "react-hot-toast";
 
 export default function Warehouses() {
   const [rows, setRows] = useState([]);
   const [form, setForm] = useState(blank());
   const [editingId, setEditingId] = useState("");
   const [err, setErr] = useState("");
+  const [confirm, setConfirm] = useState(null); // { id, name }
 
   function blank() {
     return { name: "", address: "", city: "", state: "", capacity: 0 };
@@ -40,28 +44,33 @@ export default function Warehouses() {
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+    const errs = validate(form);
+    if (errs.length) {
+      toast.error(errs[0]);
+      return;
+    }
     try {
-      if (editingId) {
-        await api.patch(`/warehouses/${editingId}`, form);
-      } else {
-        await api.post("/warehouses", form);
-      }
+      if (editingId) await api.patch(`/warehouses/${editingId}`, form);
+      else await api.post("/warehouses", form);
       cancelEdit();
       await load();
+      toast.success(editingId ? "Warehouse updated" : "Warehouse created");
     } catch {
       setErr("Failed to save. Only Admin/Manager can create/edit.");
     }
   };
 
-  const del = async (id) => {
-    if (!confirm("Delete this warehouse?")) return;
+  const requestDelete = (w) => setConfirm({ id: w._id, name: w.name });
+  const performDelete = async () => {
+    if (!confirm?.id) return;
     try {
-      await api.delete(`/warehouses/${id}`);
+      await api.delete(`/warehouses/${confirm.id}`);
+      setConfirm(null);
       await load();
+      toast.success("Warehouse deleted");
     } catch {
-      alert(
-        "Delete failed. Only Admin can delete, or it might be referenced by items/shipments."
-      );
+      setConfirm(null);
+      toast.error("Delete failed");
     }
   };
 
@@ -72,7 +81,6 @@ export default function Warehouses() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* List */}
         <div className="md:col-span-2 bg-white rounded-2xl shadow overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-left text-gray-500">
@@ -99,18 +107,12 @@ export default function Warehouses() {
                   </td>
                   <td className="p-3">{w.capacity || "-"}</td>
                   <td className="p-3 text-right space-x-2">
-                    <button
-                      onClick={() => startEdit(w)}
-                      className="text-brand-700 underline"
-                    >
+                    <Button variant="ghost" onClick={() => startEdit(w)}>
                       Edit
-                    </button>
-                    <button
-                      onClick={() => del(w._id)}
-                      className="text-red-600 underline"
-                    >
+                    </Button>
+                    <Button variant="danger" onClick={() => requestDelete(w)}>
                       Delete
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
@@ -118,7 +120,6 @@ export default function Warehouses() {
           </table>
         </div>
 
-        {/* Form */}
         <div className="bg-white rounded-2xl p-4 shadow">
           <h2 className="font-semibold mb-3">
             {editingId ? "Edit Warehouse" : "Add Warehouse"}
@@ -154,22 +155,24 @@ export default function Warehouses() {
               onChange={(v) => setForm((f) => ({ ...f, capacity: Number(v) }))}
             />
             <div className="flex gap-2">
-              <button className="bg-brand-600 text-white px-4 py-2 rounded">
-                {editingId ? "Save" : "Create"}
-              </button>
+              <Button type="submit">{editingId ? "Save" : "Create"}</Button>
               {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="px-4 py-2 rounded border"
-                >
+                <Button type="button" variant="outline" onClick={cancelEdit}>
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title="Delete warehouse?"
+        message={`Delete “${confirm?.name ?? ""}”? This cannot be undone.`}
+        onCancel={() => setConfirm(null)}
+        onConfirm={performDelete}
+      />
     </Layout>
   );
 }
@@ -186,4 +189,13 @@ function Input({ label, value, onChange, type = "text" }) {
       />
     </label>
   );
+}
+
+function validate(f) {
+  const out = [];
+  const req = (v) => v && String(v).trim().length > 0;
+  const nonneg = (n) => Number.isFinite(+n) && +n >= 0;
+  if (!req(f.name)) out.push("Name is required");
+  if (!nonneg(f.capacity)) out.push("Capacity must be ≥ 0");
+  return out;
 }

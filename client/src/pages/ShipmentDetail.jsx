@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import Button from "../components/Button";
+import { toast } from "react-hot-toast";
 
 export default function ShipmentDetail() {
   const { id } = useParams();
@@ -27,6 +29,7 @@ export default function ShipmentDetail() {
       await api.post(`/shipments/${id}/status`, { status, note });
       setNote("");
       await load();
+      toast.success("Shipment status updated");
     } catch {
       setErr("Failed to update status. Check your role.");
     }
@@ -45,8 +48,8 @@ export default function ShipmentDetail() {
         <h1 className="text-2xl font-bold text-brand-700">
           Shipment #{s.trackingCode || s._id.slice(-8)}
         </h1>
-        <Link to="/shipments" className="text-brand-700 underline">
-          Back to list
+        <Link to="/shipments">
+          <Button variant="ghost">Back to list</Button>
         </Link>
       </div>
 
@@ -103,9 +106,7 @@ export default function ShipmentDetail() {
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
-            <button className="bg-brand-600 text-white px-4 py-2 rounded">
-              Save
-            </button>
+            <Button type="submit">Save</Button>
           </form>
         </div>
       </div>

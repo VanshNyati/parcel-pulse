@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import { toast } from "react-hot-toast";
 
 export default function Users() {
   const me = JSON.parse(localStorage.getItem("user") || "null");
@@ -22,8 +23,13 @@ export default function Users() {
   }, []);
 
   const setRole = async (id, role) => {
-    await api.patch(`/users/${id}`, { role });
-    await load();
+    try {
+      await api.patch(`/users/${id}`, { role });
+      await load();
+      toast.success("Role updated");
+    } catch {
+      toast.error("Failed to update role");
+    }
   };
 
   if (me?.role !== "Admin") {

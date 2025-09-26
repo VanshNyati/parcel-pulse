@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import { toast } from "react-hot-toast";
 
 export default function ShipmentNew() {
   const nav = useNavigate();
@@ -23,16 +24,21 @@ export default function ShipmentNew() {
   useEffect(() => {
     api.get("/warehouses").then((r) => setWarehouses(r.data));
   }, []);
-
   const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
 
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+    const errs = validate(form);
+    if (errs.length) {
+      toast.error(errs[0]);
+      return;
+    }
     try {
       const { data } = await api.post("/shipments", form);
+      toast.success("Shipment created");
       nav(`/shipments/${data._id}`);
-    } catch (e) {
+    } catch {
       setErr("Failed to create shipment. Check required fields and role.");
     }
   };
@@ -157,4 +163,21 @@ function Select({ label, value, onChange, options }) {
       </select>
     </label>
   );
+}
+
+function validate(f) {
+  const out = [];
+  const req = (v) => v && String(v).trim().length > 0;
+  const phoneOk = (v) => !v || /^[0-9+\-\s()]{7,20}$/.test(v);
+  if (!req(f.trackingCode)) out.push("Tracking Code is required");
+  if (!req(f.senderName)) out.push("Sender Name is required");
+  if (!phoneOk(f.senderPhone)) out.push("Sender Phone looks invalid");
+  if (!req(f.receiverName)) out.push("Receiver Name is required");
+  if (!phoneOk(f.receiverPhone)) out.push("Receiver Phone looks invalid");
+  if (!req(f.originWarehouseId)) out.push("Origin Warehouse is required");
+  if (!req(f.destinationWarehouseId))
+    out.push("Destination Warehouse is required");
+  if (!req(f.originAddress)) out.push("Origin Address is required");
+  if (!req(f.destinationAddress)) out.push("Destination Address is required");
+  return out;
 }

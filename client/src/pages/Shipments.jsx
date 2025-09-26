@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import Button from "../components/Button";
 
 const badgeClass = (st) => {
   switch (st) {
@@ -14,7 +15,6 @@ const badgeClass = (st) => {
     case "InTransit":
       return "bg-brand-100 text-brand-800";
     case "PickedUp":
-      return "bg-slate-100 text-slate-700";
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -38,7 +38,7 @@ export default function Shipments() {
   };
 
   useEffect(() => {
-    load(); /* on first render */
+    load();
   }, []);
 
   const search = (e) => {
@@ -50,15 +50,11 @@ export default function Shipments() {
     <Layout>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-brand-700">Shipments</h1>
-        <Link
-          to="/shipments/new"
-          className="bg-brand-600 text-white px-4 py-2 rounded"
-        >
-          New Shipment
+        <Link to="/shipments/new">
+          <Button>New Shipment</Button>
         </Link>
       </div>
 
-      {/* Filters */}
       <form
         onSubmit={search}
         className="bg-white rounded-2xl p-4 shadow mb-4 grid grid-cols-1 md:grid-cols-5 gap-3"
@@ -93,10 +89,11 @@ export default function Shipments() {
           value={to}
           onChange={(e) => setTo(e.target.value)}
         />
-        <button className="bg-brand-600 text-white rounded p-2">Apply</button>
+        <Button type="submit" className="w-full">
+          Apply
+        </Button>
       </form>
 
-      {/* Table */}
       <div className="bg-white rounded-2xl shadow overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="text-left text-gray-500">
@@ -140,11 +137,8 @@ export default function Shipments() {
                   {new Date(s.createdAt).toLocaleString()}
                 </td>
                 <td className="p-3 text-right">
-                  <Link
-                    to={`/shipments/${s._id}`}
-                    className="text-brand-700 underline"
-                  >
-                    Open
+                  <Link to={`/shipments/${s._id}`}>
+                    <Button variant="ghost">Open</Button>
                   </Link>
                 </td>
               </tr>

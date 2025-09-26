@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import Layout from "../components/Layout";
+import Button from "../components/Button";
+import ConfirmDialog from "../components/ConfirmDialog";
+import { toast } from "react-hot-toast";
 
 export default function Inventory() {
   const [warehouses, setWarehouses] = useState([]);
@@ -11,6 +14,7 @@ export default function Inventory() {
   const [lowStockIds, setLowStockIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
+  const [confirm, setConfirm] = useState(null); // { id, name }
 
   function blank() {
     return {
@@ -71,26 +75,37 @@ export default function Inventory() {
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
+    const errs = validate(form, warehouseId);
+    if (errs.length) {
+      toast.error(errs[0]);
+      return;
+    }
     try {
       if (!form.warehouseId) form.warehouseId = warehouseId;
-      if (editingId) {
-        await api.patch(`/inventory/${editingId}`, form);
-      } else {
-        await api.post("/inventory", form);
-      }
+      if (editingId) await api.patch(`/inventory/${editingId}`, form);
+      else await api.post("/inventory", form);
       cancelEdit();
       await loadItems();
       await loadLowStock();
+      toast.success(editingId ? "Item updated" : "Item created");
     } catch {
       setErr("Failed to save item. Check required fields and role.");
     }
   };
 
-  const del = async (id) => {
-    if (!confirm("Delete this item?")) return;
-    await api.delete(`/inventory/${id}`);
-    await loadItems();
-    await loadLowStock();
+  const requestDelete = (it) => setConfirm({ id: it._id, name: it.name });
+  const performDelete = async () => {
+    if (!confirm?.id) return;
+    try {
+      await api.delete(`/inventory/${confirm.id}`);
+      setConfirm(null);
+      await loadItems();
+      await loadLowStock();
+      toast.success("Item deleted");
+    } catch {
+      setConfirm(null);
+      toast.error("Delete failed");
+    }
   };
 
   const currentWarehouseName = useMemo(
@@ -104,7 +119,6 @@ export default function Inventory() {
         <h1 className="text-2xl font-bold text-brand-700">Inventory</h1>
       </div>
 
-      {/* Warehouse filter */}
       <div className="bg-white rounded-2xl p-4 shadow mb-4 flex flex-wrap gap-3 items-center">
         <label className="text-sm">
           <div className="text-gray-600 mb-1">Warehouse</div>
@@ -126,7 +140,6 @@ export default function Inventory() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Table */}
         <div className="md:col-span-2 bg-white rounded-2xl shadow overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="text-left text-gray-500">
@@ -174,18 +187,15 @@ export default function Inventory() {
                     </td>
                     <td className="p-3">{it.reorderThreshold}</td>
                     <td className="p-3 text-right space-x-2">
-                      <button
-                        onClick={() => startEdit(it)}
-                        className="text-brand-700 underline"
-                      >
+                      <Button variant="ghost" onClick={() => startEdit(it)}>
                         Edit
-                      </button>
-                      <button
-                        onClick={() => del(it._id)}
-                        className="text-red-600 underline"
+                      </Button>
+                      <Button
+                        variant="danger"
+                        onClick={() => requestDelete(it)}
                       >
                         Delete
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 );
@@ -194,7 +204,6 @@ export default function Inventory() {
           </table>
         </div>
 
-        {/* Create / Edit form */}
         <div className="bg-white rounded-2xl p-4 shadow">
           <h2 className="font-semibold mb-3">
             {editingId ? "Edit Item" : "Add Item"}
@@ -247,24 +256,25 @@ export default function Inventory() {
                 ))}
               </select>
             </label>
-
             <div className="flex gap-2">
-              <button className="bg-brand-600 text-white px-4 py-2 rounded">
-                {editingId ? "Save" : "Create"}
-              </button>
+              <Button type="submit">{editingId ? "Save" : "Create"}</Button>
               {editingId && (
-                <button
-                  type="button"
-                  onClick={cancelEdit}
-                  className="px-4 py-2 rounded border"
-                >
+                <Button type="button" variant="outline" onClick={cancelEdit}>
                   Cancel
-                </button>
+                </Button>
               )}
             </div>
           </form>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirm}
+        title="Delete item?"
+        message={`Delete “${confirm?.name ?? ""}”? This cannot be undone.`}
+        onCancel={() => setConfirm(null)}
+        onConfirm={performDelete}
+      />
     </Layout>
   );
 }
@@ -281,4 +291,18 @@ function Input({ label, value, onChange, type = "text" }) {
       />
     </label>
   );
+}
+
+function validate(f, fallbackWarehouseId) {
+  const out = [];
+  const req = (v) => v && String(v).trim().length > 0;
+  const nonneg = (n) => Number.isFinite(+n) && +n >= 0;
+  if (!req(f.sku)) out.push("SKU is required");
+  if (!req(f.name)) out.push("Name is required");
+  if (!req(f.unit)) out.push("Unit is required");
+  if (!nonneg(f.stock)) out.push("Stock must be ≥ 0");
+  if (!nonneg(f.reorderThreshold)) out.push("Reorder Threshold must be ≥ 0");
+  if (!req(f.warehouseId || fallbackWarehouseId))
+    out.push("Warehouse is required");
+  return out;
 }
